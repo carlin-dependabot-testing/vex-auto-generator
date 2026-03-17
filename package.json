@@ -1,0 +1,10 @@
+{
+  "name": "vex-auto-generator",
+  "version": "1.0.0",
+  "description": "Prototype for auto-generating VEX statements on Dependabot alert dismissal",
+  "dependencies": {
+    "lodash": "4.17.20",
+    "minimist": "1.2.5",
+    "express": "4.17.1"
+  }
+}
