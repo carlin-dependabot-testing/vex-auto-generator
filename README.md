@@ -1,0 +1,1 @@
+# VEX Auto Generator\n\nPrototype: Agentic workflow that auto-generates OpenVEX statements when Dependabot alerts are dismissed.\n\nThis is a proof-of-concept for the dismiss → auto-generate VEX statement flow discussed in [github/supply-chain-security#303](https://github.com/github/supply-chain-security/issues/303).
