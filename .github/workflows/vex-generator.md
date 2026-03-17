@@ -19,6 +19,9 @@ permissions:
   issues: read
   pull-requests: read
 
+env:
+  ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
+
 tools:
   github:
     mode: remote
@@ -50,16 +53,14 @@ The OpenVEX specification: https://openvex.dev/
 
 ### Step 1: Get the Dismissed Alert Details
 
-This workflow is triggered via `workflow_dispatch` with an alert number input.
-
-Read the alert number from the event payload:
+The Dependabot alert number is available in the `ALERT_NUMBER` environment variable. Read it with:
 ```bash
-cat $GITHUB_EVENT_PATH | jq -r '.inputs.alert_number'
+echo $ALERT_NUMBER
 ```
 
-Then use the GitHub Dependabot MCP tools to fetch the full alert details for that alert number in repository `${{ github.repository }}`.
+The repository is `${{ github.repository }}`.
 
-Fetch the full Dependabot alert details including:
+Now use the **GitHub MCP tools** (NOT `gh` CLI or `curl` — those won't have auth tokens in this sandbox) to fetch the Dependabot alert details. Specifically, use the `get_a_dependabot_alert` tool with the owner, repo, and alert_number to retrieve:
 - The CVE identifier (e.g., CVE-2021-23337)
 - The GHSA identifier (e.g., GHSA-xxxx-xxxx-xxxx)
 - The affected package name and ecosystem

@@ -23,7 +23,7 @@
 #
 # Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"2dba1bb1c8aa7fc0bb43c8be28c6242f44a14cbb69229081a9368cbe9d73da2a","compiler_version":"v0.60.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"a2fc4331e930c1772c71ba24df85004df494d282993fb2b4b719f95aa59a3b4f","compiler_version":"v0.60.0","strict":true}
 
 name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 "on":
@@ -40,6 +40,9 @@ concurrency:
   group: "gh-aw-${{ github.workflow }}"
 
 run-name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
+
+env:
+  ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
 
 jobs:
   activation:
