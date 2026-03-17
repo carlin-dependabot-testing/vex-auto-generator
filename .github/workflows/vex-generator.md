@@ -24,7 +24,7 @@ env:
 
 tools:
   github:
-    mode: remote
+    mode: local
     toolsets: [default, dependabot, code_security]
   bash: true
   edit:
@@ -37,9 +37,6 @@ safe-outputs:
 
 engine:
   id: copilot
-
-features:
-  copilot-requests: true
 ---
 
 # Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal
