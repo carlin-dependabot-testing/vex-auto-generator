@@ -23,7 +23,7 @@
 #
 # Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"86d2eccb5ac2572ac3fc04e48e76f146ebe92cd6b53f7d09dff4a678972b2572","compiler_version":"v0.60.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"323a4891aa7c0c4343a3590205dacb21cf9e693cfbab64019dc2234ab8b47962","compiler_version":"v0.60.0","strict":true}
 
 name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 "on":
@@ -242,7 +242,6 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
-      security-events: read
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
@@ -273,6 +272,23 @@ jobs:
           persist-credentials: false
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
+        pre-fetch-alert:
+          env:
+            ALERT_NUM: ${{ github.event.inputs.alert_number }}
+            GH_TOKEN: ${{ github.token }}
+          name: Fetch Dependabot alert details
+          run: |
+            ALERT_JSON=$(gh api "repos/${{ github.repository }}/dependabot/alerts/${ALERT_NUM}" 2>&1)
+            echo "ALERT_GHSA_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.ghsa_id')" >> $GITHUB_ENV
+            echo "ALERT_CVE_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.cve_id')" >> $GITHUB_ENV
+            echo "ALERT_PACKAGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.name')" >> $GITHUB_ENV
+            echo "ALERT_ECOSYSTEM=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.ecosystem')" >> $GITHUB_ENV
+            echo "ALERT_SEVERITY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.severity')" >> $GITHUB_ENV
+            echo "ALERT_SUMMARY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.summary')" >> $GITHUB_ENV
+            echo "ALERT_DISMISSED_REASON=$(echo "$ALERT_JSON" | jq -r '.dismissed_reason')" >> $GITHUB_ENV
+            echo "ALERT_DISMISSED_COMMENT=$(echo "$ALERT_JSON" | jq -r '.dismissed_comment // empty')" >> $GITHUB_ENV
+            echo "ALERT_VULNERABLE_RANGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.vulnerable_version_range')" >> $GITHUB_ENV
+            echo "ALERT_NUMBER=${ALERT_NUM}" >> $GITHUB_ENV
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -510,7 +526,7 @@ jobs:
                   "GITHUB_HOST": "\${GITHUB_SERVER_URL}",
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
-                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests,dependabot,code_security"
+                  "GITHUB_TOOLSETS": "repos"
                 },
                 "guard-policies": {
                   "allow-only": {

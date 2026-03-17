@@ -15,9 +15,27 @@ description: >
 
 permissions:
   contents: read
-  security-events: read
   issues: read
   pull-requests: read
+
+steps:
+  pre-fetch-alert:
+    name: Fetch Dependabot alert details
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ALERT_NUM: ${{ github.event.inputs.alert_number }}
+    run: |
+      ALERT_JSON=$(gh api "repos/${{ github.repository }}/dependabot/alerts/${ALERT_NUM}" 2>&1)
+      echo "ALERT_GHSA_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.ghsa_id')" >> $GITHUB_ENV
+      echo "ALERT_CVE_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.cve_id')" >> $GITHUB_ENV
+      echo "ALERT_PACKAGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.name')" >> $GITHUB_ENV
+      echo "ALERT_ECOSYSTEM=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.ecosystem')" >> $GITHUB_ENV
+      echo "ALERT_SEVERITY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.severity')" >> $GITHUB_ENV
+      echo "ALERT_SUMMARY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.summary')" >> $GITHUB_ENV
+      echo "ALERT_DISMISSED_REASON=$(echo "$ALERT_JSON" | jq -r '.dismissed_reason')" >> $GITHUB_ENV
+      echo "ALERT_DISMISSED_COMMENT=$(echo "$ALERT_JSON" | jq -r '.dismissed_comment // empty')" >> $GITHUB_ENV
+      echo "ALERT_VULNERABLE_RANGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.vulnerable_version_range')" >> $GITHUB_ENV
+      echo "ALERT_NUMBER=${ALERT_NUM}" >> $GITHUB_ENV
 
 env:
   ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
@@ -25,7 +43,7 @@ env:
 tools:
   github:
     mode: local
-    toolsets: [default, dependabot, code_security]
+    toolsets: [repos]
   bash: true
   edit:
 
@@ -53,21 +71,24 @@ The OpenVEX specification: https://openvex.dev/
 
 ### Step 1: Get the Dismissed Alert Details
 
-The Dependabot alert number is available in the `ALERT_NUMBER` environment variable. Read it with:
+All alert details are pre-fetched and available as environment variables. Read them with bash:
+
 ```bash
-echo $ALERT_NUMBER
+echo "Alert #: $ALERT_NUMBER"
+echo "GHSA ID: $ALERT_GHSA_ID"
+echo "CVE ID: $ALERT_CVE_ID"
+echo "Package: $ALERT_PACKAGE"
+echo "Ecosystem: $ALERT_ECOSYSTEM"
+echo "Severity: $ALERT_SEVERITY"
+echo "Summary: $ALERT_SUMMARY"
+echo "Dismissed reason: $ALERT_DISMISSED_REASON"
+echo "Dismissed comment: $ALERT_DISMISSED_COMMENT"
+echo "Vulnerable range: $ALERT_VULNERABLE_RANGE"
 ```
 
 The repository is `${{ github.repository }}`.
 
-Now use the **GitHub MCP tools** (NOT `gh` CLI or `curl` — those won't have auth tokens in this sandbox) to fetch the Dependabot alert details. Specifically, use the `get_a_dependabot_alert` tool with the owner, repo, and alert_number to retrieve:
-- The CVE identifier (e.g., CVE-2021-23337)
-- The GHSA identifier (e.g., GHSA-xxxx-xxxx-xxxx)
-- The affected package name and ecosystem
-- The vulnerable version range
-- The dismissal reason provided by the maintainer (e.g., "tolerable_risk", "inaccurate", "no_bandwidth", "not_used")
-- The dismissal comment if any
-- The severity of the vulnerability
+Verify all required fields are present before proceeding.
 
 ### Step 2: Map Dismissal Reason to VEX Status
 
