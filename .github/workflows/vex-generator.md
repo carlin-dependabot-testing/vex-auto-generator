@@ -1,19 +1,17 @@
 ---
 on:
-  repository_dispatch:
-    types: [dependabot_alert_dismissed]
   workflow_dispatch:
     inputs:
       alert_number:
-        description: "Dependabot alert number to generate VEX for (for manual testing)"
-        required: false
+        description: "Dependabot alert number to generate VEX for"
+        required: true
         type: string
 
 description: >
-  Auto-generates an OpenVEX statement when a Dependabot alert is dismissed.
+  Auto-generates an OpenVEX statement for a dismissed Dependabot alert.
   This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts
-  as they normally would, and this workflow creates a standards-compliant VEX
-  document capturing that assessment.
+  as they normally would, then trigger this workflow to create a standards-compliant
+  VEX document capturing that assessment.
 
 permissions:
   contents: read
@@ -52,24 +50,16 @@ The OpenVEX specification: https://openvex.dev/
 
 ### Step 1: Get the Dismissed Alert Details
 
-This workflow was triggered either by a `repository_dispatch` event (from a Dependabot alert dismissal) or manually via `workflow_dispatch`.
+This workflow is triggered via `workflow_dispatch` with an alert number input.
 
-**For `repository_dispatch` triggers:** Read the event payload using bash:
+Read the alert number from the event payload:
 ```bash
-cat $GITHUB_EVENT_PATH | jq '.client_payload'
+cat $GITHUB_EVENT_PATH | jq -r '.inputs.alert_number'
 ```
-This will contain: `alert_number`, `ghsa_id`, `cve_id`, `package_name`, `package_ecosystem`, `vulnerable_version_range`, `severity`, `summary`, `dismissed_reason`, `dismissed_comment`, `dismissed_by`.
 
-**For `workflow_dispatch` triggers:** Read the alert number from the event payload:
-```bash
-cat $GITHUB_EVENT_PATH | jq '.inputs.alert_number'
-```
-Then use the GitHub Dependabot MCP tools to fetch the full alert details for that alert number.
+Then use the GitHub Dependabot MCP tools to fetch the full alert details for that alert number in repository `${{ github.repository }}`.
 
-**For both triggers**, also use the repository context:
-- Repository: `${{ github.repository }}`
-
-Use the GitHub MCP tools to fetch the full Dependabot alert details including:
+Fetch the full Dependabot alert details including:
 - The CVE identifier (e.g., CVE-2021-23337)
 - The GHSA identifier (e.g., GHSA-xxxx-xxxx-xxxx)
 - The affected package name and ecosystem

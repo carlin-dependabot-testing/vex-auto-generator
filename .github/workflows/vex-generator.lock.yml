@@ -21,20 +21,17 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Auto-generates an OpenVEX statement when a Dependabot alert is dismissed. This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts as they normally would, and this workflow creates a standards-compliant VEX document capturing that assessment.
+# Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"6bc71e9034ea22efe12d93b5ed04b776052664a129a090ad5ad12154356b96cb","compiler_version":"v0.60.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"2dba1bb1c8aa7fc0bb43c8be28c6242f44a14cbb69229081a9368cbe9d73da2a","compiler_version":"v0.60.0","strict":true}
 
 name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 "on":
-  repository_dispatch:
-    types:
-    - dependabot_alert_dismissed
   workflow_dispatch:
     inputs:
       alert_number:
-        description: Dependabot alert number to generate VEX for (for manual testing)
-        required: false
+        description: Dependabot alert number to generate VEX for
+        required: true
         type: string
 
 permissions: {}
@@ -46,8 +43,6 @@ run-name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 
 jobs:
   activation:
-    needs: pre_activation
-    if: needs.pre_activation.outputs.activated == 'true'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -198,7 +193,6 @@ jobs:
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
-          GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: ${{ needs.pre_activation.outputs.activated }}
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
@@ -217,8 +211,7 @@ jobs:
                 GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER: process.env.GH_AW_GITHUB_EVENT_PULL_REQUEST_NUMBER,
                 GH_AW_GITHUB_REPOSITORY: process.env.GH_AW_GITHUB_REPOSITORY,
                 GH_AW_GITHUB_RUN_ID: process.env.GH_AW_GITHUB_RUN_ID,
-                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE,
-                GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED: process.env.GH_AW_NEEDS_PRE_ACTIVATION_OUTPUTS_ACTIVATED
+                GH_AW_GITHUB_WORKSPACE: process.env.GH_AW_GITHUB_WORKSPACE
               }
             });
       - name: Validate prompt placeholders
@@ -247,8 +240,6 @@ jobs:
       issues: read
       pull-requests: read
       security-events: read
-    concurrency:
-      group: "gh-aw-copilot-${{ github.workflow }}"
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
@@ -763,7 +754,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
-          WORKFLOW_DESCRIPTION: "Auto-generates an OpenVEX statement when a Dependabot alert is dismissed. This is the \"easy button\" MVP for VEX adoption - maintainers dismiss alerts as they normally would, and this workflow creates a standards-compliant VEX document capturing that assessment."
+          WORKFLOW_DESCRIPTION: "Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the \"easy button\" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
@@ -968,29 +959,6 @@ jobs:
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/handle_create_pr_error.cjs');
-            await main();
-
-  pre_activation:
-    runs-on: ubuntu-slim
-    outputs:
-      activated: ${{ steps.check_membership.outputs.is_team_member == 'true' }}
-      matched_command: ''
-    steps:
-      - name: Setup Scripts
-        uses: github/gh-aw-actions/setup@998487a673ace02b3d9586e7511268089af88971 # v0.60.0
-        with:
-          destination: /opt/gh-aw/actions
-      - name: Check team membership for workflow
-        id: check_membership
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          GH_AW_REQUIRED_ROLES: admin,maintainer,write
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');
-            setupGlobals(core, github, context, exec, io);
-            const { main } = require('/opt/gh-aw/actions/check_membership.cjs');
             await main();
 
   safe_outputs:
