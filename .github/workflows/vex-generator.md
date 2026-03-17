@@ -37,6 +37,9 @@ safe-outputs:
 
 engine:
   id: copilot
+
+features:
+  copilot-requests: true
 ---
 
 # Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal
