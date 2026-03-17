@@ -19,8 +19,7 @@ permissions:
   pull-requests: read
 
 steps:
-  pre-fetch-alert:
-    name: Fetch Dependabot alert details
+  - name: Fetch Dependabot alert details
     env:
       GH_TOKEN: ${{ github.token }}
       ALERT_NUM: ${{ github.event.inputs.alert_number }}
