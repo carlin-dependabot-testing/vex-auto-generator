@@ -3,46 +3,64 @@ on:
   workflow_dispatch:
     inputs:
       alert_number:
-        description: "Dependabot alert number to generate VEX for"
+        description: "Dependabot alert number"
         required: true
         type: string
+      ghsa_id:
+        description: "GHSA ID (e.g., GHSA-xvch-5gv4-984h)"
+        required: true
+        type: string
+      cve_id:
+        description: "CVE ID (e.g., CVE-2021-44906)"
+        required: true
+        type: string
+      package_name:
+        description: "Affected package name (e.g., minimist)"
+        required: true
+        type: string
+      package_ecosystem:
+        description: "Package ecosystem (e.g., npm, pip, maven)"
+        required: true
+        type: string
+      severity:
+        description: "Vulnerability severity (low, medium, high, critical)"
+        required: true
+        type: string
+      summary:
+        description: "Brief vulnerability summary"
+        required: true
+        type: string
+      dismissed_reason:
+        description: "Dismissal reason"
+        required: true
+        type: choice
+        options:
+          - not_used
+          - inaccurate
+          - tolerable_risk
+          - no_bandwidth
 
 description: >
   Auto-generates an OpenVEX statement for a dismissed Dependabot alert.
-  This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts
-  as they normally would, then trigger this workflow to create a standards-compliant
-  VEX document capturing that assessment.
+  Provide the alert details as inputs — the agent generates a standards-compliant
+  OpenVEX document and opens a PR.
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
 
-steps:
-  - name: Fetch Dependabot alert details
-    env:
-      GH_TOKEN: ${{ github.token }}
-      ALERT_NUM: ${{ github.event.inputs.alert_number }}
-    run: |
-      ALERT_JSON=$(gh api "repos/${{ github.repository }}/dependabot/alerts/${ALERT_NUM}" 2>&1)
-      echo "ALERT_GHSA_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.ghsa_id')" >> $GITHUB_ENV
-      echo "ALERT_CVE_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.cve_id')" >> $GITHUB_ENV
-      echo "ALERT_PACKAGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.name')" >> $GITHUB_ENV
-      echo "ALERT_ECOSYSTEM=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.ecosystem')" >> $GITHUB_ENV
-      echo "ALERT_SEVERITY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.severity')" >> $GITHUB_ENV
-      echo "ALERT_SUMMARY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.summary')" >> $GITHUB_ENV
-      echo "ALERT_DISMISSED_REASON=$(echo "$ALERT_JSON" | jq -r '.dismissed_reason')" >> $GITHUB_ENV
-      echo "ALERT_DISMISSED_COMMENT=$(echo "$ALERT_JSON" | jq -r '.dismissed_comment // empty')" >> $GITHUB_ENV
-      echo "ALERT_VULNERABLE_RANGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.vulnerable_version_range')" >> $GITHUB_ENV
-      echo "ALERT_NUMBER=${ALERT_NUM}" >> $GITHUB_ENV
-
 env:
   ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
+  ALERT_GHSA_ID: ${{ github.event.inputs.ghsa_id }}
+  ALERT_CVE_ID: ${{ github.event.inputs.cve_id }}
+  ALERT_PACKAGE: ${{ github.event.inputs.package_name }}
+  ALERT_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem }}
+  ALERT_SEVERITY: ${{ github.event.inputs.severity }}
+  ALERT_SUMMARY: ${{ github.event.inputs.summary }}
+  ALERT_DISMISSED_REASON: ${{ github.event.inputs.dismissed_reason }}
 
 tools:
-  github:
-    mode: local
-    toolsets: [repos]
   bash: true
   edit:
 
@@ -70,7 +88,7 @@ The OpenVEX specification: https://openvex.dev/
 
 ### Step 1: Get the Dismissed Alert Details
 
-All alert details are pre-fetched and available as environment variables. Read them with bash:
+All alert details are available as environment variables. Read them with bash:
 
 ```bash
 echo "Alert #: $ALERT_NUMBER"
@@ -81,13 +99,11 @@ echo "Ecosystem: $ALERT_ECOSYSTEM"
 echo "Severity: $ALERT_SEVERITY"
 echo "Summary: $ALERT_SUMMARY"
 echo "Dismissed reason: $ALERT_DISMISSED_REASON"
-echo "Dismissed comment: $ALERT_DISMISSED_COMMENT"
-echo "Vulnerable range: $ALERT_VULNERABLE_RANGE"
 ```
 
 The repository is `${{ github.repository }}`.
 
-Verify all required fields are present before proceeding.
+Verify all required fields are present before proceeding. Also read the package.json (or equivalent manifest) to get this project's version number.
 
 ### Step 2: Map Dismissal Reason to VEX Status
 

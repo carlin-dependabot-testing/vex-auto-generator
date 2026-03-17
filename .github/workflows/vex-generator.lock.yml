@@ -21,16 +21,49 @@
 #
 # For more information: https://github.github.com/gh-aw/introduction/overview/
 #
-# Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the "easy button" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment.
+# Auto-generates an OpenVEX statement for a dismissed Dependabot alert. Provide the alert details as inputs — the agent generates a standards-compliant OpenVEX document and opens a PR.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"5b237f6b0bbc574c4e0b9e0ca67d51f7ffc36af538d62ac14a6b9add464cab5a","compiler_version":"v0.60.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"f301758c65ed0b6e6cc0dec18ae5026841258cb47b364e2886a23ecc97a11f35","compiler_version":"v0.60.0","strict":true}
 
 name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 "on":
   workflow_dispatch:
     inputs:
       alert_number:
-        description: Dependabot alert number to generate VEX for
+        description: Dependabot alert number
+        required: true
+        type: string
+      cve_id:
+        description: CVE ID (e.g., CVE-2021-44906)
+        required: true
+        type: string
+      dismissed_reason:
+        description: Dismissal reason
+        options:
+        - not_used
+        - inaccurate
+        - tolerable_risk
+        - no_bandwidth
+        required: true
+        type: choice
+      ghsa_id:
+        description: GHSA ID (e.g., GHSA-xvch-5gv4-984h)
+        required: true
+        type: string
+      package_ecosystem:
+        description: Package ecosystem (e.g., npm, pip, maven)
+        required: true
+        type: string
+      package_name:
+        description: Affected package name (e.g., minimist)
+        required: true
+        type: string
+      severity:
+        description: Vulnerability severity (low, medium, high, critical)
+        required: true
+        type: string
+      summary:
+        description: Brief vulnerability summary
         required: true
         type: string
 
@@ -42,7 +75,14 @@ concurrency:
 run-name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 
 env:
+  ALERT_CVE_ID: ${{ github.event.inputs.cve_id }}
+  ALERT_DISMISSED_REASON: ${{ github.event.inputs.dismissed_reason }}
+  ALERT_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem }}
+  ALERT_GHSA_ID: ${{ github.event.inputs.ghsa_id }}
   ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
+  ALERT_PACKAGE: ${{ github.event.inputs.package_name }}
+  ALERT_SEVERITY: ${{ github.event.inputs.severity }}
+  ALERT_SUMMARY: ${{ github.event.inputs.summary }}
 
 jobs:
   activation:
@@ -272,23 +312,6 @@ jobs:
           persist-credentials: false
       - name: Create gh-aw temp directory
         run: bash /opt/gh-aw/actions/create_gh_aw_tmp_dir.sh
-      - env:
-          ALERT_NUM: ${{ github.event.inputs.alert_number }}
-          GH_TOKEN: ${{ github.token }}
-        name: Fetch Dependabot alert details
-        run: |-
-          ALERT_JSON=$(gh api "repos/${{ github.repository }}/dependabot/alerts/${ALERT_NUM}" 2>&1)
-          echo "ALERT_GHSA_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.ghsa_id')" >> $GITHUB_ENV
-          echo "ALERT_CVE_ID=$(echo "$ALERT_JSON" | jq -r '.security_advisory.cve_id')" >> $GITHUB_ENV
-          echo "ALERT_PACKAGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.name')" >> $GITHUB_ENV
-          echo "ALERT_ECOSYSTEM=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.package.ecosystem')" >> $GITHUB_ENV
-          echo "ALERT_SEVERITY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.severity')" >> $GITHUB_ENV
-          echo "ALERT_SUMMARY=$(echo "$ALERT_JSON" | jq -r '.security_advisory.summary')" >> $GITHUB_ENV
-          echo "ALERT_DISMISSED_REASON=$(echo "$ALERT_JSON" | jq -r '.dismissed_reason')" >> $GITHUB_ENV
-          echo "ALERT_DISMISSED_COMMENT=$(echo "$ALERT_JSON" | jq -r '.dismissed_comment // empty')" >> $GITHUB_ENV
-          echo "ALERT_VULNERABLE_RANGE=$(echo "$ALERT_JSON" | jq -r '.security_vulnerability.vulnerable_version_range')" >> $GITHUB_ENV
-          echo "ALERT_NUMBER=${ALERT_NUM}" >> $GITHUB_ENV
-
       - name: Configure Git credentials
         env:
           REPO_NAME: ${{ github.repository }}
@@ -526,7 +549,7 @@ jobs:
                   "GITHUB_HOST": "\${GITHUB_SERVER_URL}",
                   "GITHUB_PERSONAL_ACCESS_TOKEN": "\${GITHUB_MCP_SERVER_TOKEN}",
                   "GITHUB_READ_ONLY": "1",
-                  "GITHUB_TOOLSETS": "repos"
+                  "GITHUB_TOOLSETS": "context,repos,issues,pull_requests"
                 },
                 "guard-policies": {
                   "allow-only": {
@@ -769,7 +792,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           WORKFLOW_NAME: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
-          WORKFLOW_DESCRIPTION: "Auto-generates an OpenVEX statement for a dismissed Dependabot alert. This is the \"easy button\" MVP for VEX adoption - maintainers dismiss alerts as they normally would, then trigger this workflow to create a standards-compliant VEX document capturing that assessment."
+          WORKFLOW_DESCRIPTION: "Auto-generates an OpenVEX statement for a dismissed Dependabot alert. Provide the alert details as inputs — the agent generates a standards-compliant OpenVEX document and opens a PR."
           HAS_PATCH: ${{ steps.collect_output.outputs.has_patch }}
         with:
           script: |
