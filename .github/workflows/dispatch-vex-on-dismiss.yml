@@ -1,0 +1,70 @@
+name: Dispatch VEX Generator on Alert Dismissal
+
+on:
+  schedule:
+    # Check for newly dismissed alerts every 15 minutes
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  security-events: read
+  actions: write
+
+jobs:
+  check-dismissed-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for recently dismissed Dependabot alerts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          WINDOW_MINUTES=20  # Slightly wider than cron interval to avoid gaps
+
+          # Get dismissed alerts from the API
+          dismissed_alerts=$(gh api \
+            "/repos/${REPO}/dependabot/alerts?state=dismissed&sort=updated&direction=desc&per_page=20" \
+            --jq '.[] | select(.dismissed_at != null)')
+
+          if [ -z "$dismissed_alerts" ]; then
+            echo "No dismissed alerts found."
+            exit 0
+          fi
+
+          CUTOFF=$(date -u -d "${WINDOW_MINUTES} minutes ago" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+                   || date -u -v-${WINDOW_MINUTES}M +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "Looking for alerts dismissed after: $CUTOFF"
+
+          # Process each recently dismissed alert
+          gh api \
+            "/repos/${REPO}/dependabot/alerts?state=dismissed&sort=updated&direction=desc&per_page=20" \
+            --jq ".[] | select(.dismissed_at > \"${CUTOFF}\")" | \
+          jq -c '.' | while IFS= read -r alert; do
+
+            ALERT_NUMBER=$(echo "$alert" | jq -r '.number')
+            GHSA_ID=$(echo "$alert" | jq -r '.security_advisory.ghsa_id // ""')
+            CVE_ID=$(echo "$alert" | jq -r '.security_advisory.cve_id // ""')
+            PACKAGE_NAME=$(echo "$alert" | jq -r '.dependency.package.name // ""')
+            PACKAGE_ECOSYSTEM=$(echo "$alert" | jq -r '.dependency.package.ecosystem // ""')
+            SEVERITY=$(echo "$alert" | jq -r '.security_advisory.severity // ""')
+            SUMMARY=$(echo "$alert" | jq -r '.security_advisory.summary // ""')
+            DISMISSED_REASON=$(echo "$alert" | jq -r '.dismissed_reason // ""')
+
+            echo "Dispatching VEX generator for alert #${ALERT_NUMBER} (${GHSA_ID})"
+
+            gh workflow run vex-generator.lock.yml \
+              --repo "$REPO" \
+              -f alert_number="$ALERT_NUMBER" \
+              -f ghsa_id="$GHSA_ID" \
+              -f cve_id="$CVE_ID" \
+              -f package_name="$PACKAGE_NAME" \
+              -f package_ecosystem="$PACKAGE_ECOSYSTEM" \
+              -f severity="$SEVERITY" \
+              -f summary="$SUMMARY" \
+              -f dismissed_reason="$DISMISSED_REASON"
+
+            echo "✓ Dispatched for alert #${ALERT_NUMBER}"
+          done

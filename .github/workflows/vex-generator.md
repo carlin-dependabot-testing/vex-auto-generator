@@ -1,7 +1,5 @@
 ---
 on:
-  dependabot_alert:
-    types: [dismissed]
   workflow_dispatch:
     inputs:
       alert_number:
@@ -54,14 +52,14 @@ permissions:
   security-events: read
 
 env:
-  ALERT_NUMBER: ${{ github.event.inputs.alert_number || github.event.alert.number }}
-  ALERT_GHSA_ID: ${{ github.event.inputs.ghsa_id || github.event.alert.security_advisory.ghsa_id }}
-  ALERT_CVE_ID: ${{ github.event.inputs.cve_id || github.event.alert.security_advisory.cve_id }}
-  ALERT_PACKAGE: ${{ github.event.inputs.package_name || github.event.alert.dependency.package.name }}
-  ALERT_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem || github.event.alert.dependency.package.ecosystem }}
-  ALERT_SEVERITY: ${{ github.event.inputs.severity || github.event.alert.security_advisory.severity }}
-  ALERT_SUMMARY: ${{ github.event.inputs.summary || github.event.alert.security_advisory.summary }}
-  ALERT_DISMISSED_REASON: ${{ github.event.inputs.dismissed_reason || github.event.alert.dismissed_reason }}
+  ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
+  ALERT_GHSA_ID: ${{ github.event.inputs.ghsa_id }}
+  ALERT_CVE_ID: ${{ github.event.inputs.cve_id }}
+  ALERT_PACKAGE: ${{ github.event.inputs.package_name }}
+  ALERT_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem }}
+  ALERT_SEVERITY: ${{ github.event.inputs.severity }}
+  ALERT_SUMMARY: ${{ github.event.inputs.summary }}
+  ALERT_DISMISSED_REASON: ${{ github.event.inputs.dismissed_reason }}
 
 tools:
   bash: true

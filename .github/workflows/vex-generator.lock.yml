@@ -23,7 +23,7 @@
 #
 # Auto-generates an OpenVEX statement for a dismissed Dependabot alert. Provide the alert details as inputs — the agent generates a standards-compliant OpenVEX document and opens a PR.
 #
-# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"f301758c65ed0b6e6cc0dec18ae5026841258cb47b364e2886a23ecc97a11f35","compiler_version":"v0.60.0","strict":true}
+# gh-aw-metadata: {"schema_version":"v2","frontmatter_hash":"51428df6229d76b6289db707ef8bb6e2cf48f548c137b721c0ca7cddcafdfeb2","compiler_version":"v0.60.0","strict":true}
 
 name: "Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal"
 "on":
@@ -282,6 +282,7 @@ jobs:
       contents: read
       issues: read
       pull-requests: read
+      security-events: read
     env:
       DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
       GH_AW_ASSETS_ALLOWED_EXTS: ""
