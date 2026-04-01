@@ -37,36 +37,37 @@ jobs:
           echo "Existing VEX files: ${existing_vex:-none}"
           echo "Existing VEX PRs: ${open_prs:-none}"
 
-          # Get all dismissed alerts
-          alerts=$(gh api "/repos/${REPO}/dependabot/alerts?state=dismissed&per_page=100" 2>/dev/null || echo "[]")
+          # Get all dismissed alerts — write to file to avoid shell variable mangling
+          ALERTS_FILE=$(mktemp)
+          gh api "/repos/${REPO}/dependabot/alerts?state=dismissed&per_page=100" > "$ALERTS_FILE" 2>/dev/null || echo "[]" > "$ALERTS_FILE"
 
-          count=$(echo "$alerts" | jq 'length')
+          count=$(jq 'length' "$ALERTS_FILE")
           echo "Found ${count} dismissed alert(s)"
 
           dispatched=0
 
-          echo "$alerts" | jq -c '.[]' | while IFS= read -r alert; do
-            ALERT_NUMBER=$(echo "$alert" | jq -r '.number')
-            GHSA_ID=$(echo "$alert" | jq -r '.security_advisory.ghsa_id // ""')
-            CVE_ID=$(echo "$alert" | jq -r '.security_advisory.cve_id // ""')
+          for i in $(seq 0 $((count - 1))); do
+            ALERT_NUMBER=$(jq -r ".[$i].number" "$ALERTS_FILE")
+            GHSA_ID=$(jq -r ".[$i].security_advisory.ghsa_id // \"\"" "$ALERTS_FILE")
+            CVE_ID=$(jq -r ".[$i].security_advisory.cve_id // \"\"" "$ALERTS_FILE")
 
             # Skip if VEX file already exists
-            if echo "$existing_vex" | grep -qi "$GHSA_ID" 2>/dev/null; then
+            if [ -n "$existing_vex" ] && echo "$existing_vex" | grep -qi "$GHSA_ID" 2>/dev/null; then
               echo "Skipping alert #${ALERT_NUMBER} (${GHSA_ID}) — VEX file exists"
               continue
             fi
 
             # Skip if a PR already exists for this alert
-            if echo "$open_prs" | grep -qi "$CVE_ID" 2>/dev/null || echo "$open_prs" | grep -qi "$GHSA_ID" 2>/dev/null; then
+            if [ -n "$open_prs" ] && { echo "$open_prs" | grep -qi "$CVE_ID" 2>/dev/null || echo "$open_prs" | grep -qi "$GHSA_ID" 2>/dev/null; }; then
               echo "Skipping alert #${ALERT_NUMBER} (${GHSA_ID}) — PR already exists"
               continue
             fi
 
-            PACKAGE_NAME=$(echo "$alert" | jq -r '.dependency.package.name // ""')
-            PACKAGE_ECOSYSTEM=$(echo "$alert" | jq -r '.dependency.package.ecosystem // ""')
-            SEVERITY=$(echo "$alert" | jq -r '.security_advisory.severity // ""')
-            SUMMARY=$(echo "$alert" | jq -r '.security_advisory.summary // ""')
-            DISMISSED_REASON=$(echo "$alert" | jq -r '.dismissed_reason // ""')
+            PACKAGE_NAME=$(jq -r ".[$i].dependency.package.name // \"\"" "$ALERTS_FILE")
+            PACKAGE_ECOSYSTEM=$(jq -r ".[$i].dependency.package.ecosystem // \"\"" "$ALERTS_FILE")
+            SEVERITY=$(jq -r ".[$i].security_advisory.severity // \"\"" "$ALERTS_FILE")
+            SUMMARY=$(jq -r ".[$i].security_advisory.summary // \"\"" "$ALERTS_FILE")
+            DISMISSED_REASON=$(jq -r ".[$i].dismissed_reason // \"\"" "$ALERTS_FILE")
 
             echo "Dispatching for alert #${ALERT_NUMBER}: ${GHSA_ID} (${CVE_ID}) — ${PACKAGE_NAME}"
 
@@ -88,5 +89,6 @@ jobs:
             sleep 2
           done
 
+          rm -f "$ALERTS_FILE"
           echo ""
           echo "Done. Dispatched ${dispatched} workflow(s)."
