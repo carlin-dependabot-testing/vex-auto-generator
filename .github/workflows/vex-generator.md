@@ -1,69 +1,29 @@
 ---
 on:
-  workflow_dispatch:
-    inputs:
-      alert_number:
-        description: "Dependabot alert number"
-        required: true
-        type: string
-      ghsa_id:
-        description: "GHSA ID (e.g., GHSA-xvch-5gv4-984h)"
-        required: true
-        type: string
-      cve_id:
-        description: "CVE ID (e.g., CVE-2021-44906)"
-        required: true
-        type: string
-      package_name:
-        description: "Affected package name (e.g., minimist)"
-        required: true
-        type: string
-      package_ecosystem:
-        description: "Package ecosystem (e.g., npm, pip, maven)"
-        required: true
-        type: string
-      severity:
-        description: "Vulnerability severity (low, medium, high, critical)"
-        required: true
-        type: string
-      summary:
-        description: "Brief vulnerability summary"
-        required: true
-        type: string
-      dismissed_reason:
-        description: "Dismissal reason"
-        required: true
-        type: choice
-        options:
-          - not_used
-          - inaccurate
-          - tolerable_risk
-          - no_bandwidth
+  schedule:
+    - cron: daily
+  workflow_dispatch: {}
 
 description: >
-  Auto-generates an OpenVEX statement for a dismissed Dependabot alert.
-  Provide the alert details as inputs — the agent generates a standards-compliant
-  OpenVEX document and opens a PR.
+  Auto-generates OpenVEX statements for dismissed Dependabot alerts.
+  Runs daily (or on-demand) — the agent queries dismissed alerts directly,
+  skips any that already have VEX files, and opens PRs for the rest.
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
   security-events: read
-
-env:
-  ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
-  ALERT_GHSA_ID: ${{ github.event.inputs.ghsa_id }}
-  ALERT_CVE_ID: ${{ github.event.inputs.cve_id }}
-  ALERT_PACKAGE: ${{ github.event.inputs.package_name }}
-  ALERT_ECOSYSTEM: ${{ github.event.inputs.package_ecosystem }}
-  ALERT_SEVERITY: ${{ github.event.inputs.severity }}
-  ALERT_SUMMARY: ${{ github.event.inputs.summary }}
-  ALERT_DISMISSED_REASON: ${{ github.event.inputs.dismissed_reason }}
+  vulnerability-alerts: read
 
 tools:
   bash: true
   edit:
+  github:
+    github-app:
+      app-id: ${{ vars.APP_ID }}
+      private-key: ${{ secrets.APP_PRIVATE_KEY }}
+    toolsets: [default, dependabot]
 
 safe-outputs:
   create-pull-request:
@@ -75,9 +35,9 @@ engine:
   id: copilot
 ---
 
-# Auto-Generate OpenVEX Statement on Dependabot Alert Dismissal
+# Auto-Generate OpenVEX Statements for Dismissed Dependabot Alerts
 
-You are a security automation agent. When a Dependabot alert is dismissed, you generate a standards-compliant OpenVEX statement documenting why the vulnerability does not affect this project.
+You are a security automation agent. You scan for dismissed Dependabot alerts and generate standards-compliant OpenVEX statements documenting why the vulnerabilities do not affect this project.
 
 ## Context
 
@@ -87,28 +47,24 @@ The OpenVEX specification: https://openvex.dev/
 
 ## Your Task
 
-### Step 1: Get the Dismissed Alert Details
+### Step 1: Discover Dismissed Alerts
 
-All alert details are available as environment variables. Read them with bash:
+Use the GitHub MCP tools to list all dismissed Dependabot alerts for this repository (`${{ github.repository }}`):
 
-```bash
-echo "Alert #: $ALERT_NUMBER"
-echo "GHSA ID: $ALERT_GHSA_ID"
-echo "CVE ID: $ALERT_CVE_ID"
-echo "Package: $ALERT_PACKAGE"
-echo "Ecosystem: $ALERT_ECOSYSTEM"
-echo "Severity: $ALERT_SEVERITY"
-echo "Summary: $ALERT_SUMMARY"
-echo "Dismissed reason: $ALERT_DISMISSED_REASON"
-```
+1. Call `list_dependabot_alerts` with `state=dismissed` to get all dismissed alerts.
+2. For each dismissed alert, extract: alert number, GHSA ID, CVE ID, package name, ecosystem, severity, summary, and dismissed reason.
 
-The repository is `${{ github.repository }}`.
+### Step 2: Filter Out Already-Processed Alerts
 
-Verify all required fields are present before proceeding. Also read the package.json (or equivalent manifest) to get this project's version number.
+Check which alerts already have VEX statements by looking for existing `.vex/<ghsa-id>.json` files in the repository. Skip any alert that already has a VEX file.
 
-### Step 2: Map Dismissal Reason to VEX Status
+Also read the package.json (or equivalent manifest) to get this project's version number.
 
-Map the Dependabot dismissal reason to an OpenVEX status and justification:
+If there are no unprocessed dismissed alerts, stop here and report that everything is up to date.
+
+### Step 3: Map Dismissal Reason to VEX Status
+
+For each unprocessed alert, map the Dependabot dismissal reason to an OpenVEX status and justification:
 
 | Dependabot Dismissal | VEX Status | VEX Justification |
 |---|---|---|
@@ -119,7 +75,7 @@ Map the Dependabot dismissal reason to an OpenVEX status and justification:
 
 **Important**: If the dismissal reason is `no_bandwidth`, do NOT generate a VEX statement. Instead, skip and post a comment explaining that "no_bandwidth" dismissals don't represent a security assessment and therefore shouldn't generate VEX statements.
 
-### Step 3: Determine Package URL (purl)
+### Step 4: Determine Package URL (purl)
 
 Construct a valid Package URL (purl) for the affected product. The purl format depends on the ecosystem:
 
@@ -132,7 +88,7 @@ Construct a valid Package URL (purl) for the affected product. The purl format d
 
 Use the repository's own package version from its manifest file (package.json, setup.py, go.mod, etc.) as the product version.
 
-### Step 4: Generate the OpenVEX Document
+### Step 5: Generate the OpenVEX Document
 
 Create a valid OpenVEX JSON document following the v0.2.0 specification:
 
@@ -165,9 +121,9 @@ Create a valid OpenVEX JSON document following the v0.2.0 specification:
 }
 ```
 
-### Step 5: Write the VEX File
+### Step 6: Write the VEX Files
 
-Save the OpenVEX document to `.vex/<ghsa-id>.json` in the repository.
+For each alert, save the OpenVEX document to `.vex/<ghsa-id>.json` in the repository.
 
 If the `.vex/` directory doesn't exist yet, create it. Also create or update a `.vex/README.md` explaining the VEX directory:
 
@@ -187,16 +143,16 @@ vulnerability scanners and SBOM tools to reduce false positive alerts for
 downstream consumers of this package.
 ```
 
-### Step 6: Create a Pull Request
+### Step 7: Create a Pull Request
 
-Create a pull request with:
-- Title: `Add VEX statement for <CVE-ID> (<package name>)`
+Create a single pull request with all new VEX statements:
+- Title: `Add VEX statements for dismissed Dependabot alerts` (or `Add VEX statement for <CVE-ID> (<package name>)` if only one alert)
 - Body explaining:
-  - Which vulnerability was assessed
-  - The maintainer's dismissal reason
+  - Which vulnerabilities were assessed (list each one)
+  - The maintainer's dismissal reason for each
   - What VEX status was assigned and why
   - A note that this is auto-generated and should be reviewed
-  - Link to the original Dependabot alert
+  - Links to the original Dependabot alerts
 
 Use the `create-pull-request` safe output to create the PR.
 
