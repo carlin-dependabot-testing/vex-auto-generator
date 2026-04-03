@@ -1,0 +1,26 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://github.com/carlin-dependabot-testing/vex-auto-generator/vex/GHSA-9wv6-86v2-598j",
+  "author": "GitHub Agentic Workflow <vex-generator@github.com>",
+  "role": "automated-tool",
+  "timestamp": "2026-04-01T23:33:27.383Z",
+  "version": 1,
+  "tooling": "GitHub Agentic Workflows (gh-aw) VEX Generator",
+  "statements": [
+    {
+      "vulnerability": {
+        "@id": "GHSA-9wv6-86v2-598j",
+        "name": "CVE-2024-45296",
+        "description": "path-to-regexp outputs backtracking regular expressions"
+      },
+      "products": [
+        {
+          "@id": "pkg:npm/vex-auto-generator@1.0.0"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present",
+      "impact_statement": "The maintainer has determined that path-to-regexp is not used by this project. The vulnerable code (path-to-regexp) is not present in the project's dependencies or execution paths, and therefore this vulnerability (CVE-2024-45296 / GHSA-9wv6-86v2-598j) does not affect vex-auto-generator."
+    }
+  ]
+}
